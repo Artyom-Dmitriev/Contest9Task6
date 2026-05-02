@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -9,19 +9,19 @@ class Program
     {
         public long Xl, Fl;
         public Node Prev, Next;
-        public bool Removed;
+        public int Version;
     }
 
     // Простая реализация минимальной кучи для замены PriorityQueue
     class MinHeap
     {
-        private List<(Node node, long fl, long xl)> heap = new List<(Node, long, long)>();
+        private List<(Node node, long fl, long xl, int version)> heap = new List<(Node, long, long, int)>();
 
         public int Count => heap.Count;
 
         public void Enqueue(Node node, long fl, long xl)
         {
-            heap.Add((node, fl, xl));
+            heap.Add((node, fl, xl, node.Version));
             int i = heap.Count - 1;
             while (i > 0)
             {
@@ -32,28 +32,33 @@ class Program
             }
         }
 
-        public Node Dequeue()
+        public (Node node, bool isValid) Dequeue()
         {
-            Node result = heap[0].node;
+            var (node, fl, xl, version) = heap[0];
             int last = heap.Count - 1;
             heap[0] = heap[last];
             heap.RemoveAt(last);
-            int i = 0;
-            while (true)
+            if (heap.Count > 0)
             {
-                int left = 2 * i + 1;
-                int right = 2 * i + 2;
-                int smallest = i;
-                if (left < heap.Count && Compare(heap[left], heap[smallest]) < 0) smallest = left;
-                if (right < heap.Count && Compare(heap[right], heap[smallest]) < 0) smallest = right;
-                if (smallest == i) break;
-                Swap(i, smallest);
-                i = smallest;
+                int i = 0;
+                while (true)
+                {
+                    int left = 2 * i + 1;
+                    int right = 2 * i + 2;
+                    int smallest = i;
+                    if (left < heap.Count && Compare(heap[left], heap[smallest]) < 0) smallest = left;
+                    if (right < heap.Count && Compare(heap[right], heap[smallest]) < 0) smallest = right;
+                    if (smallest == i) break;
+                    Swap(i, smallest);
+                    i = smallest;
+                }
             }
-            return result;
+            
+            bool isValid = (node.Version == version);
+            return (node, isValid);
         }
 
-        private int Compare((Node node, long fl, long xl) a, (Node node, long fl, long xl) b)
+        private int Compare((Node node, long fl, long xl, int version) a, (Node node, long fl, long xl, int version) b)
         {
             int cmp = a.fl.CompareTo(b.fl);
             if (cmp != 0) return cmp;
@@ -149,9 +154,9 @@ class Program
         }
 
         long Wd = 2 * W;
-        var head = new Node { Xl = -1, Fl = -1 };
-        var tail = new Node { Xl = Wd, Fl = -2 };
-        var first = new Node { Xl = 0, Fl = 0 };
+        var head = new Node { Xl = -1, Fl = -1, Version = 0 };
+        var tail = new Node { Xl = Wd, Fl = -2, Version = 0 };
+        var first = new Node { Xl = 0, Fl = 0, Version = 0 };
         head.Next = first; first.Prev = head;
         first.Next = tail; tail.Prev = first;
 
@@ -165,8 +170,8 @@ class Program
             Node node = null;
             while (pq.Count > 0)
             {
-                var nd = pq.Dequeue();
-                if (!nd.Removed) { node = nd; break; }
+                var (nd, isValid) = pq.Dequeue();
+                if (isValid) { node = nd; break; }
             }
 
             long xl = node.Xl, fl = node.Fl;
@@ -182,16 +187,16 @@ class Program
             long xMid = xl + 2 * s_d;
 
             Node prev = node.Prev, next = node.Next;
-            node.Removed = true;
+            node.Version++;  // Инвалидация версии вместо флага Removed
 
-            Node leftNew = new Node { Xl = xl, Fl = fl + 2 * s_d };
+            Node leftNew = new Node { Xl = xl, Fl = fl + 2 * s_d, Version = 0 };
             Node rightNew = null;
 
             prev.Next = leftNew;
             leftNew.Prev = prev;
             if (xMid < xr)
             {
-                rightNew = new Node { Xl = xMid, Fl = fl };
+                rightNew = new Node { Xl = xMid, Fl = fl, Version = 0 };
                 leftNew.Next = rightNew;
                 rightNew.Prev = leftNew;
                 rightNew.Next = next;
@@ -208,7 +213,7 @@ class Program
             {
                 prev.Next = leftNew.Next;
                 leftNew.Next.Prev = prev;
-                leftNew.Removed = true;
+                leftNew.Version++;  // Инвалидация вместо Removed флага
                 leftSurvivor = prev;
             }
             else
@@ -232,7 +237,7 @@ class Program
             {
                 rightSurvivor.Next = next.Next;
                 next.Next.Prev = rightSurvivor;
-                next.Removed = true;
+                next.Version++;  // Инвалидация вместо Removed флага
             }
         }
 
